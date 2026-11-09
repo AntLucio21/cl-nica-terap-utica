@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Users, Wallet, LogOut } from "lucide-react";
+import { CalendarDays, Users, Wallet, LogOut, UserCog } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole } from "@/hooks/use-role";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,11 @@ function Layout() {
             ))}
           </nav>
           <div className="flex items-center gap-3">
+            {data?.role === "terapeuta" && (
+              <Link to="/equipe" aria-label="Equipe" className="text-muted-foreground hover:text-foreground">
+                <UserCog className="h-5 w-5" />
+              </Link>
+            )}
             <span className="rounded-full bg-accent px-3 py-1 text-xs text-accent-foreground">
               {data?.role === "terapeuta" ? "Terapeuta" : data?.role === "secretaria" ? "Recepção" : "…"}
             </span>
