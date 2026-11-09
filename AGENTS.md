@@ -28,3 +28,8 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+- Roles live in `public.user_roles` (terapeuta/secretaria); first signup becomes terapeuta via DB trigger. Why: avoids privilege escalation via profile data.
+- Clinical notes are a separate table readable only by terapeuta (RLS). Why: reception must never see clinical content.
+- Clinic defaults (duration, price, reminder lead time) live in `src/lib/clinic.ts`. Why: one source for UI and future reminders.
