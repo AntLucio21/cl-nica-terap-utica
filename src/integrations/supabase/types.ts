@@ -14,16 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clinical_notes: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          patient_id: string
+          session_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          patient_id: string
+          session_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          patient_id?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_notes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_notes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          active: boolean
+          birth_date: string | null
+          created_at: string
+          default_price: number
+          email: string | null
+          full_name: string
+          id: string
+          phone: string
+        }
+        Insert: {
+          active?: boolean
+          birth_date?: string | null
+          created_at?: string
+          default_price?: number
+          email?: string | null
+          full_name: string
+          id?: string
+          phone?: string
+        }
+        Update: {
+          active?: boolean
+          birth_date?: string | null
+          created_at?: string
+          default_price?: number
+          email?: string | null
+          full_name?: string
+          id?: string
+          phone?: string
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          created_at: string
+          duration_min: number
+          id: string
+          paid_at: string | null
+          patient_id: string
+          payment_method: string | null
+          payment_status: string
+          price: number
+          reminder_sent_at: string | null
+          starts_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          duration_min?: number
+          id?: string
+          paid_at?: string | null
+          patient_id: string
+          payment_method?: string | null
+          payment_status?: string
+          price?: number
+          reminder_sent_at?: string | null
+          starts_at: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          duration_min?: number
+          id?: string
+          paid_at?: string | null
+          patient_id?: string
+          payment_method?: string | null
+          payment_status?: string
+          price?: number
+          reminder_sent_at?: string | null
+          starts_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "terapeuta" | "secretaria"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +299,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["terapeuta", "secretaria"],
+    },
   },
 } as const
