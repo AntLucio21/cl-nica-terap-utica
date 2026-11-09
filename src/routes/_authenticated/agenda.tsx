@@ -132,7 +132,7 @@ function NewSession({ defaultDate }: { defaultDate: Date }) {
         <DialogHeader><DialogTitle>Nova sessão</DialogTitle></DialogHeader>
         <form
           className="space-y-4"
-          onSubmit={(e) => { e.preventDefault(); if (!patientId) return toast.error("Escolha o paciente"); create.mutate(); }}
+          onSubmit={(e) => { e.preventDefault(); if (!patientId) { toast.error("Escolha o paciente"); return; } create.mutate(); }}
         >
           <div className="space-y-1.5">
             <Label>Paciente</Label>

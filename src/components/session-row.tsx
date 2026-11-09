@@ -19,7 +19,7 @@ export type SessionWithPatient = {
 export function SessionRow({ s, showDate }: { s: SessionWithPatient; showDate?: boolean }) {
   const qc = useQueryClient();
   const update = useMutation({
-    mutationFn: async (patch: Record<string, unknown>) => {
+    mutationFn: async (patch: { status?: string; payment_status?: string; paid_at?: string | null }) => {
       const { error } = await supabase.from("sessions").update(patch).eq("id", s.id);
       if (error) throw error;
     },
