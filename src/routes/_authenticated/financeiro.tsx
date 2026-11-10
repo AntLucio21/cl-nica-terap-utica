@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SessionRow, type SessionWithPatient } from "@/components/session-row";
-import { brl, isBillable, summarize } from "@/lib/clinic";
+import { DEFAULT_RULES, brl, isBillable, summarize } from "@/lib/clinic";
 import { rulesOf, useClinicSettings } from "@/hooks/use-settings";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
@@ -24,7 +24,7 @@ function Financeiro() {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [filter, setFilter] = useState<"todos" | "pendente" | "pago" | "revisar">("pendente");
   const { data: settings } = useClinicSettings();
-  const rules = rulesOf(settings ?? { cancelNoticeHours: 24, cancelChargePct: 0, noShowChargePct: 100 } as never);
+  const rules = settings ? rulesOf(settings) : DEFAULT_RULES;
   const next = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
   const { data: sessions = [] } = useQuery({
