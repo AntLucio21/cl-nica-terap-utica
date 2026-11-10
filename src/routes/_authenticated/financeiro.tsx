@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -7,32 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SessionRow, type SessionWithPatient } from "@/components/session-row";
 import { brl, isBillable, summarize } from "@/lib/clinic";
-import { Switch } from "@/components/ui/switch";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { useClinicSettings } from "@/hooks/use-settings";
-import { useRole } from "@/hooks/use-role";
+import { rulesOf, useClinicSettings } from "@/hooks/use-settings";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   head: () => ({ meta: [{ title: "Financeiro — Sereno" }, { name: "description", content: "Controle de sessões pagas e pendentes." }, { property: "og:title", content: "Financeiro — Sereno" }, { property: "og:description", content: "Controle de sessões pagas e pendentes." }] }),
+  beforeLoad: async ({ context }) => {
+    if (context.role === "secretaria") {
+      const { data } = await supabase.rpc("reception_can_see_financials");
+      if (data === false) throw redirect({ to: "/agenda" });
+    }
+  },
   component: Financeiro,
 });
 
 function Financeiro() {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [filter, setFilter] = useState<"todos" | "pendente" | "pago" | "revisar">("pendente");
-  const qc = useQueryClient();
-  const { data: me } = useRole();
   const { data: settings } = useClinicSettings();
-  const chargeNoShow = settings?.chargeNoShow ?? true;
-  const toggle = useMutation({
-    mutationFn: async (v: boolean) => {
-      const { error } = await supabase.from("clinic_settings").update({ charge_no_show: v, updated_at: new Date().toISOString() }).eq("id", 1);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["clinic-settings"] }),
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const rules = rulesOf(settings ?? { cancelNoticeHours: 24, cancelChargePct: 0, noShowChargePct: 100 } as never);
   const next = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
   const { data: sessions = [] } = useQuery({
@@ -40,7 +32,7 @@ function Financeiro() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sessions")
-        .select("id, starts_at, duration_min, price, status, payment_status, patients(full_name, phone)")
+        .select("id, starts_at, duration_min, price, status, payment_status, cancelled_at, patients(full_name, phone)")
         .gte("starts_at", month.toISOString())
         .lt("starts_at", next.toISOString())
         .order("starts_at");
@@ -49,10 +41,10 @@ function Financeiro() {
     },
   });
 
-  const { recebido, pendente, aRevisar } = summarize(sessions, { chargeNoShow });
+  const { recebido, pendente, aRevisar } = summarize(sessions, rules);
   const list = filter === "revisar"
     ? sessions.filter((s) => s.status === "cancelada" && s.payment_status === "pago")
-    : sessions.filter((s) => isBillable(s, { chargeNoShow }) && (filter === "todos" || s.payment_status === filter));
+    : sessions.filter((s) => isBillable(s, rules) && (filter === "todos" || s.payment_status === filter));
 
   return (
     <div>
@@ -78,10 +70,6 @@ function Financeiro() {
           <b>Pagas e canceladas: {brl(aRevisar)}</b> — não entram no recebido. Devolva o valor ou remarque a sessão. Toque para ver.
         </button>
       )}
-      <label className="mt-3 flex items-center justify-between rounded-2xl border bg-card p-4 text-sm">
-        <span><b>Cobrar faltas</b><br /><span className="text-muted-foreground">Sessões marcadas como "Faltou" {chargeNoShow ? "são cobradas" : "não são cobradas"}.{me?.role !== "terapeuta" && " Só a terapeuta pode mudar."}</span></span>
-        <Switch checked={chargeNoShow} disabled={me?.role !== "terapeuta" || toggle.isPending} onCheckedChange={(v) => toggle.mutate(v)} />
-      </label>
       <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)} className="mt-6">
         <TabsList>
           <TabsTrigger value="pendente">Pendentes</TabsTrigger>

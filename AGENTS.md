@@ -32,6 +32,6 @@ use the editor.
 ## Project rules
 - Roles live in `public.user_roles` (terapeuta/secretaria); first signup becomes terapeuta via DB trigger. Why: avoids privilege escalation via profile data.
 - Clinical notes are a separate table readable only by terapeuta (RLS). Why: reception must never see clinical content.
-- Clinic defaults (duration, price, reminder lead time) live in `src/lib/clinic.ts`. Why: one source for UI and future reminders.
+- Clinic configuration (prices, cancellation/no-show policy, working hours, blocks, message templates, clinic profile) lives in `clinic_settings`/`clinic_hours`/`clinic_blocks`, editable only by terapeuta via /configuracoes with terapeuta-only RLS on `clinic_settings`; sessions snapshot price/duration at creation, and `src/lib/clinic.ts` keeps fallback defaults. Why: rules change over time, and old sessions must keep the rules of their time.
 - Private pages require a signed-in account that also holds a clinic role in `user_roles`; the `_authenticated` gate signs out role-less accounts and exposes `role` in route context for page-level gates (e.g. Equipe = terapeuta only). Why: a valid login alone must never open the system.
 - Session overlap is blocked by a DB trigger (ignores `cancelada`, raises 23P01 with the patient name); finance rules (`summarize`/`isBillable`) and phone rules (`src/lib/phone.ts`, stored as 55+digits) are unit-tested. Why: the database is the last line against bad data, and UI and tests share one rule source.
