@@ -10,6 +10,15 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/auth" });
+    // A valid login is not enough: the account must also hold a clinic role.
+    const { data: rows } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
+    const roles = (rows ?? []).map((r) => r.role);
+    const role = roles.includes("terapeuta") ? "terapeuta" : roles.includes("secretaria") ? "secretaria" : null;
+    if (!role) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth" });
+    }
+    return { role };
   },
   component: Layout,
 });
