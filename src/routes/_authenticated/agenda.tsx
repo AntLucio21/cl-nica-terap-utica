@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SessionRow, type SessionWithPatient } from "@/components/session-row";
 import { SESSION_DEFAULTS, clinicDateTime } from "@/lib/clinic";
+import { useClinicSettings } from "@/hooks/use-settings";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
@@ -33,7 +34,7 @@ function Agenda() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sessions")
-        .select("id, starts_at, duration_min, price, status, payment_status, patients(full_name, phone)")
+        .select("id, starts_at, duration_min, price, status, payment_status, cancelled_at, patients(full_name, phone)")
         .gte("starts_at", day.toISOString())
         .lt("starts_at", addDays(day, 1).toISOString())
         .order("starts_at");
@@ -94,6 +95,8 @@ function NewSession({ defaultDate }: { defaultDate: Date }) {
   const [date, setDate] = useState(toInputDate(defaultDate));
   const [time, setTime] = useState("09:00");
   const [price, setPrice] = useState(String(SESSION_DEFAULTS.price));
+  const { data: settings } = useClinicSettings();
+  const durationMin = settings?.defaultDurationMin ?? SESSION_DEFAULTS.durationMin;
 
   const { data: patients = [] } = useQuery({
     queryKey: ["patients"],
@@ -104,13 +107,24 @@ function NewSession({ defaultDate }: { defaultDate: Date }) {
     },
   });
 
+  // Horários de atendimento do dia escolhido (a equipe toda pode ler; o banco bloqueia de qualquer forma).
+  const weekday = ((clinicDateTime(date, "12:00").getDay() + 6) % 7) + 1; // 1=seg … 7=dom
+  const { data: dayHours = [] } = useQuery({
+    queryKey: ["clinic-hours", weekday],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("clinic_hours").select("start_time, end_time").eq("weekday", weekday).order("start_time");
+      if (error) return [];
+      return data;
+    },
+  });
+
   const create = useMutation({
     mutationFn: async () => {
       const startsAt = clinicDateTime(date, time);
       const { error } = await supabase.from("sessions").insert({
         patient_id: patientId,
         starts_at: startsAt.toISOString(),
-        duration_min: SESSION_DEFAULTS.durationMin,
+        duration_min: durationMin,
         price: Number(price),
       });
       if (error) throw error;
@@ -141,7 +155,7 @@ function NewSession({ defaultDate }: { defaultDate: Date }) {
               onValueChange={(v) => {
                 setPatientId(v);
                 const p = patients.find((x) => x.id === v);
-                if (p) setPrice(String(p.default_price));
+                setPrice(String(p?.default_price ?? settings?.defaultPrice ?? SESSION_DEFAULTS.price));
               }}
             >
               <SelectTrigger><SelectValue placeholder={patients.length ? "Selecione" : "Cadastre um paciente primeiro"} /></SelectTrigger>
@@ -155,7 +169,12 @@ function NewSession({ defaultDate }: { defaultDate: Date }) {
             <div className="space-y-1.5"><Label>Horário</Label><Input type="time" required value={time} onChange={(e) => setTime(e.target.value)} /></div>
           </div>
           <div className="space-y-1.5"><Label>Valor (R$)</Label><Input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} /></div>
-          <p className="text-xs text-muted-foreground">Duração: 1 hora.</p>
+          <p className="text-xs text-muted-foreground">
+            Duração: {durationMin} min.
+            {dayHours.length > 0
+              ? ` Atendimento neste dia: ${dayHours.map((h) => `${h.start_time.slice(0, 5)}–${h.end_time.slice(0, 5)}`).join(" e ")}.`
+              : " Sem horário de atendimento cadastrado para este dia — a sessão pode ser recusada."}
+          </p>
           <Button type="submit" className="w-full" disabled={create.isPending}>Agendar</Button>
         </form>
       </DialogContent>

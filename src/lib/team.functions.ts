@@ -18,7 +18,35 @@ export const listTeam = createServerFn({ method: "GET" })
       id: u.id,
       email: u.email ?? "",
       role: roles?.find((r) => r.user_id === u.id)?.role ?? null,
+      banned: Boolean((u as { banned_until?: string }).banned_until && new Date((u as { banned_until?: string }).banned_until!).getTime() > Date.now()),
     }));
+  });
+
+export const resetUserPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), password: z.string().min(10).max(72) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await assertTerapeuta(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, { password: data.password });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setUserActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), active: z.boolean() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await assertTerapeuta(context.supabase, context.userId);
+    if (data.id === context.userId) throw new Error("Você não pode desativar a própria conta.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
+      ban_duration: data.active ? "none" : "876000h",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const createReceptionUser = createServerFn({ method: "POST" })

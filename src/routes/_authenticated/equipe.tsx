@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRole } from "@/hooks/use-role";
-import { createReceptionUser, listTeam, removeUser } from "@/lib/team.functions";
+import { createReceptionUser, listTeam, removeUser, resetUserPassword, setUserActive } from "@/lib/team.functions";
 
 export const Route = createFileRoute("/_authenticated/equipe")({
   head: () => ({
@@ -51,6 +51,18 @@ function EquipePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["team"] }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
+  const resetPw = useServerFn(resetUserPassword);
+  const toggleActive = useServerFn(setUserActive);
+  const reset = useMutation({
+    mutationFn: ({ id, password }: { id: string; password: string }) => resetPw({ data: { id, password } }),
+    onSuccess: () => toast.success("Senha redefinida. Passe a nova senha pessoalmente."),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
+  const toggle = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => toggleActive({ data: { id, active } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["team"] }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
 
   if (me && !isTer) return <p className="text-muted-foreground">Somente a terapeuta acessa esta área.</p>;
 
@@ -61,17 +73,34 @@ function EquipePage() {
         {(team.data ?? []).map((u) => (
           <li key={u.id} className="flex items-center justify-between px-4 py-3">
             <div>
-              <p className="text-sm">{u.email}</p>
+              <p className="text-sm">{u.email}{u.banned && <span className="ml-2 rounded-full bg-warning px-2 py-0.5 text-xs text-warning-foreground">desativado</span>}</p>
               <p className="text-xs text-muted-foreground">{u.role === "terapeuta" ? "Terapeuta" : "Recepção"}</p>
             </div>
             {u.role !== "terapeuta" && (
-              <button
-                aria-label="Remover acesso"
-                className="text-muted-foreground hover:text-destructive"
-                onClick={() => confirm(`Remover o acesso de ${u.email}?`) && del.mutate(u.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                  onClick={() => {
+                    const pw = prompt(`Nova senha para ${u.email} (mínimo 10 caracteres):`);
+                    if (pw) reset.mutate({ id: u.id, password: pw });
+                  }}
+                >
+                  Redefinir senha
+                </button>
+                <button
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                  onClick={() => toggle.mutate({ id: u.id, active: u.banned })}
+                >
+                  {u.banned ? "Reativar" : "Desativar"}
+                </button>
+                <button
+                  aria-label="Remover acesso"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => confirm(`Remover o acesso de ${u.email}?`) && del.mutate(u.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </li>
         ))}

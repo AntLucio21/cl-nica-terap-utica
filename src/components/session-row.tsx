@@ -13,6 +13,7 @@ export type SessionWithPatient = {
   price: number;
   status: string;
   payment_status: string;
+  cancelled_at?: string | null;
   patients: { full_name: string; phone: string } | null;
 };
 

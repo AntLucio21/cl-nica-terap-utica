@@ -15,6 +15,13 @@
       "when": 1794332699428,
       "tag": "0001_session_rules_and_phones",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794334341427,
+      "tag": "0002_clinic_config_hours_blocks_packages",
+      "breakpoints": true
     }
   ]
 }
