@@ -33,3 +33,4 @@ use the editor.
 - Roles live in `public.user_roles` (terapeuta/secretaria); first signup becomes terapeuta via DB trigger. Why: avoids privilege escalation via profile data.
 - Clinical notes are a separate table readable only by terapeuta (RLS). Why: reception must never see clinical content.
 - Clinic defaults (duration, price, reminder lead time) live in `src/lib/clinic.ts`. Why: one source for UI and future reminders.
+- Private pages require a signed-in account that also holds a clinic role in `user_roles`; the `_authenticated` gate signs out role-less accounts and exposes `role` in route context for page-level gates (e.g. Equipe = terapeuta only). Why: a valid login alone must never open the system.
