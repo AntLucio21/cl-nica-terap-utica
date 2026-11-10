@@ -14,7 +14,8 @@ import { rulesOf, useClinicSettings } from "@/hooks/use-settings";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Plus } from "lucide-react";
+import { Package, Pencil, Plus } from "lucide-react";
+import { isValidBrPhone, maskBrPhone, toStoredPhone } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/pacientes/$id")({
   head: () => ({ meta: [{ title: "Paciente — Sereno" }, { name: "description", content: "Ficha do paciente." }, { property: "og:title", content: "Paciente — Sereno" }, { property: "og:description", content: "Ficha do paciente." }] }),
@@ -51,7 +52,10 @@ function Paciente() {
   return (
     <div>
       <Link to="/pacientes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Pacientes</Link>
-      <h1 className="mt-3 text-3xl">{patient?.full_name ?? "…"}</h1>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <h1 className="text-3xl">{patient?.full_name ?? "…"}</h1>
+        {patient && <EditPatient patient={patient} />}
+      </div>
       <p className="text-sm text-muted-foreground">
         {formatBrPhone(patient?.phone ?? "") || "sem telefone"}{patient?.phone_needs_review && " (revisar telefone)"} · sessão {brl(Number(patient?.default_price ?? 0))}
         {pendente > 0 && <span className="ml-2 rounded-full bg-warning px-2 py-0.5 text-xs text-warning-foreground">deve {brl(pendente)}</span>}
@@ -104,8 +108,22 @@ function Packages({ patientId }: { patientId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
   const toggle = useMutation({
-    mutationFn: async (p: { id: string; active: boolean }) => {
-      const { error } = await supabase.from("patient_packages").update({ active: !p.active }).eq("id", p.id);
+    mutationFn: async (p: { id: string; active: boolean; starts_on: string; expires_on: string | null }) => {
+      let patch: { active: boolean; used_sessions?: number; starts_on?: string; expires_on?: string | null } = { active: !p.active };
+      if (!p.active) {
+        // Reativar reinicia o ciclo: saldo zerado e validade recontada a partir de hoje.
+        const today = new Date();
+        const iso = (d: Date) => d.toISOString().slice(0, 10);
+        let expires: string | null = null;
+        if (p.expires_on) {
+          const days = Math.round((new Date(p.expires_on).getTime() - new Date(p.starts_on).getTime()) / 864e5);
+          const e = new Date(today);
+          e.setDate(e.getDate() + days);
+          expires = iso(e);
+        }
+        patch = { active: true, used_sessions: 0, starts_on: iso(today), expires_on: expires };
+      }
+      const { error } = await supabase.from("patient_packages").update(patch).eq("id", p.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["packages", patientId] }),
@@ -192,5 +210,64 @@ function Notes({ patientId }: { patientId: string }) {
         ))}
       </div>
     </section>
+  );
+}
+
+type PatientRow = { id: string; full_name: string; phone: string; email: string | null; birth_date: string | null; default_price: number; active: boolean };
+
+function EditPatient({ patient }: { patient: PatientRow }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const init = () => ({
+    full_name: patient.full_name,
+    phone: maskBrPhone(patient.phone.replace(/^55/, "")),
+    email: patient.email ?? "",
+    birth_date: patient.birth_date ?? "",
+    default_price: String(patient.default_price),
+    active: patient.active,
+  });
+  const [f, setF] = useState(init);
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("patients").update({
+        full_name: f.full_name.trim(),
+        phone: toStoredPhone(f.phone),
+        phone_needs_review: false,
+        email: f.email.trim() || null,
+        birth_date: f.birth_date || null,
+        default_price: Number(f.default_price),
+        active: f.active,
+      }).eq("id", patient.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Paciente atualizado");
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["sessions"] });
+      setOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const set = (k: "full_name" | "email" | "birth_date" | "default_price") => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setF(init()); }}>
+      <DialogTrigger asChild><Button size="sm" variant="outline"><Pencil className="h-4 w-4" /> Editar</Button></DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
+        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (f.phone && !isValidBrPhone(f.phone)) { toast.error("Telefone inválido: use DDD + 8 dígitos (fixo) ou DDD + 9 + 8 dígitos (celular)."); return; } save.mutate(); }}>
+          <div className="space-y-1.5"><Label>Nome completo</Label><Input required value={f.full_name} onChange={set("full_name")} /></div>
+          <div className="space-y-1.5"><Label>WhatsApp</Label><Input inputMode="tel" placeholder="(84) 98643-8775" value={f.phone} onChange={(e) => setF({ ...f, phone: maskBrPhone(e.target.value) })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Nascimento</Label><Input type="date" value={f.birth_date} onChange={set("birth_date")} /></div>
+            <div className="space-y-1.5"><Label>Valor sessão (R$)</Label><Input type="number" min="0" step="0.01" value={f.default_price} onChange={set("default_price")} /></div>
+          </div>
+          <div className="space-y-1.5"><Label>E-mail</Label><Input type="email" value={f.email} onChange={set("email")} /></div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Paciente ativo</label>
+          <p className="text-xs text-muted-foreground">Mudar o valor vale para novas sessões; as já agendadas mantêm o valor original.</p>
+          <Button type="submit" className="w-full" disabled={save.isPending}>Salvar</Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
