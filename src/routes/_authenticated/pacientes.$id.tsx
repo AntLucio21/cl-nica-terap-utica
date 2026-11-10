@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SessionRow, type SessionWithPatient } from "@/components/session-row";
 import { useRole } from "@/hooks/use-role";
 import { brl, summarize } from "@/lib/clinic";
+import { formatBrPhone } from "@/lib/phone";
+import { useClinicSettings } from "@/hooks/use-settings";
 
 export const Route = createFileRoute("/_authenticated/pacientes/$id")({
   head: () => ({ meta: [{ title: "Paciente — Sereno" }, { name: "description", content: "Ficha do paciente." }, { property: "og:title", content: "Paciente — Sereno" }, { property: "og:description", content: "Ficha do paciente." }] }),
@@ -39,14 +41,15 @@ function Paciente() {
       return data as SessionWithPatient[];
     },
   });
-  const { pendente } = summarize(sessions);
+  const { data: settings } = useClinicSettings();
+  const { pendente } = summarize(sessions, { chargeNoShow: settings?.chargeNoShow ?? true });
 
   return (
     <div>
       <Link to="/pacientes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Pacientes</Link>
       <h1 className="mt-3 text-3xl">{patient?.full_name ?? "…"}</h1>
       <p className="text-sm text-muted-foreground">
-        {patient?.phone || "sem telefone"} · sessão {brl(Number(patient?.default_price ?? 0))}
+        {formatBrPhone(patient?.phone ?? "") || "sem telefone"}{patient?.phone_needs_review && " (revisar telefone)"} · sessão {brl(Number(patient?.default_price ?? 0))}
         {pendente > 0 && <span className="ml-2 rounded-full bg-warning px-2 py-0.5 text-xs text-warning-foreground">deve {brl(pendente)}</span>}
       </p>
 

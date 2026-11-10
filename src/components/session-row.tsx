@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { STATUS_LABEL, brl, type SessionStatus } from "@/lib/clinic";
+import { CLINIC_TZ, STATUS_LABEL, brl, type SessionStatus } from "@/lib/clinic";
 import { cn } from "@/lib/utils";
 
 export type SessionWithPatient = {
@@ -28,22 +28,25 @@ export function SessionRow({ s, showDate }: { s: SessionWithPatient; showDate?: 
   });
   const start = new Date(s.starts_at);
   const end = new Date(start.getTime() + s.duration_min * 60000);
-  const fmt = (d: Date) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const fmt = (d: Date) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: CLINIC_TZ });
   const paid = s.payment_status === "pago";
 
   return (
     <div className={cn("flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-center", s.status === "cancelada" && "opacity-60")}>
       <div className="min-w-24">
-        {showDate && <div className="text-xs text-muted-foreground">{start.toLocaleDateString("pt-BR")}</div>}
+        {showDate && <div className="text-xs text-muted-foreground">{start.toLocaleDateString("pt-BR", { timeZone: CLINIC_TZ })}</div>}
         <div className="font-display text-lg">{fmt(start)}</div>
         <div className="text-xs text-muted-foreground">até {fmt(end)}</div>
       </div>
       <div className="flex-1">
         <div className="font-medium">{s.patients?.full_name ?? "—"}</div>
-        <div className="text-sm text-muted-foreground">{brl(Number(s.price))}</div>
+        <div className="text-sm text-muted-foreground">{brl(Number(s.price))}{s.status === "cancelada" && paid && <span className="ml-2 rounded-full bg-warning px-2 py-0.5 text-xs text-warning-foreground">paga e cancelada</span>}</div>
       </div>
       <div className="flex items-center gap-2">
-        <Select value={s.status} onValueChange={(v) => update.mutate({ status: v })}>
+        <Select value={s.status} onValueChange={(v) => {
+          if (v === "cancelada" && paid) toast.warning("Esta sessão já estava paga. Ela aparece em \"Pagas e canceladas\" no Financeiro para devolver ou remarcar.");
+          update.mutate({ status: v });
+        }}>
           <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
           <SelectContent>
             {(Object.keys(STATUS_LABEL) as SessionStatus[]).map((k) => (

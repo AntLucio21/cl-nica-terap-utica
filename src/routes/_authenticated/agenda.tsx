@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SessionRow, type SessionWithPatient } from "@/components/session-row";
-import { SESSION_DEFAULTS } from "@/lib/clinic";
+import { SESSION_DEFAULTS, clinicDateTime } from "@/lib/clinic";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
@@ -106,7 +106,7 @@ function NewSession({ defaultDate }: { defaultDate: Date }) {
 
   const create = useMutation({
     mutationFn: async () => {
-      const startsAt = new Date(`${date}T${time}:00`);
+      const startsAt = clinicDateTime(date, time);
       const { error } = await supabase.from("sessions").insert({
         patient_id: patientId,
         starts_at: startsAt.toISOString(),
