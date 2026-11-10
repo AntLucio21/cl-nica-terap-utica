@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      clinic_settings: {
+        Row: {
+          charge_no_show: boolean
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          charge_no_show?: boolean
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          charge_no_show?: boolean
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clinical_notes: {
         Row: {
           content: string
@@ -66,6 +84,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string
+          phone_needs_review: boolean
         }
         Insert: {
           active?: boolean
@@ -76,6 +95,7 @@ export type Database = {
           full_name: string
           id?: string
           phone?: string
+          phone_needs_review?: boolean
         }
         Update: {
           active?: boolean
@@ -86,6 +106,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string
+          phone_needs_review?: boolean
         }
         Relationships: []
       }

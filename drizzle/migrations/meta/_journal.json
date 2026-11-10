@@ -8,6 +8,13 @@
       "when": 1794238243711,
       "tag": "0000_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794332699428,
+      "tag": "0001_session_rules_and_phones",
+      "breakpoints": true
     }
   ]
 }
