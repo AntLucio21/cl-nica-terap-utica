@@ -34,3 +34,4 @@ use the editor.
 - Clinical notes are a separate table readable only by terapeuta (RLS). Why: reception must never see clinical content.
 - Clinic defaults (duration, price, reminder lead time) live in `src/lib/clinic.ts`. Why: one source for UI and future reminders.
 - Private pages require a signed-in account that also holds a clinic role in `user_roles`; the `_authenticated` gate signs out role-less accounts and exposes `role` in route context for page-level gates (e.g. Equipe = terapeuta only). Why: a valid login alone must never open the system.
+- Session overlap is blocked by a DB trigger (ignores `cancelada`, raises 23P01 with the patient name); finance rules (`summarize`/`isBillable`) and phone rules (`src/lib/phone.ts`, stored as 55+digits) are unit-tested. Why: the database is the last line against bad data, and UI and tests share one rule source.

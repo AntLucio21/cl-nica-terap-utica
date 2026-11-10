@@ -6,7 +6,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SessionRow, type SessionWithPatient } from "@/components/session-row";
-import { brl, summarize } from "@/lib/clinic";
+import { brl, isBillable, summarize } from "@/lib/clinic";
+import { Switch } from "@/components/ui/switch";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useClinicSettings } from "@/hooks/use-settings";
+import { useRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   head: () => ({ meta: [{ title: "Financeiro — Sereno" }, { name: "description", content: "Controle de sessões pagas e pendentes." }, { property: "og:title", content: "Financeiro — Sereno" }, { property: "og:description", content: "Controle de sessões pagas e pendentes." }] }),
@@ -15,7 +20,19 @@ export const Route = createFileRoute("/_authenticated/financeiro")({
 
 function Financeiro() {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
-  const [filter, setFilter] = useState<"todos" | "pendente" | "pago">("pendente");
+  const [filter, setFilter] = useState<"todos" | "pendente" | "pago" | "revisar">("pendente");
+  const qc = useQueryClient();
+  const { data: me } = useRole();
+  const { data: settings } = useClinicSettings();
+  const chargeNoShow = settings?.chargeNoShow ?? true;
+  const toggle = useMutation({
+    mutationFn: async (v: boolean) => {
+      const { error } = await supabase.from("clinic_settings").update({ charge_no_show: v, updated_at: new Date().toISOString() }).eq("id", 1);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["clinic-settings"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
   const next = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
   const { data: sessions = [] } = useQuery({
@@ -32,8 +49,10 @@ function Financeiro() {
     },
   });
 
-  const { recebido, pendente } = summarize(sessions);
-  const list = sessions.filter((s) => s.status !== "cancelada" && (filter === "todos" || s.payment_status === filter));
+  const { recebido, pendente, aRevisar } = summarize(sessions, { chargeNoShow });
+  const list = filter === "revisar"
+    ? sessions.filter((s) => s.status === "cancelada" && s.payment_status === "pago")
+    : sessions.filter((s) => isBillable(s, { chargeNoShow }) && (filter === "todos" || s.payment_status === filter));
 
   return (
     <div>
@@ -54,11 +73,21 @@ function Financeiro() {
           <div className="mt-1 font-display text-2xl md:text-3xl">{brl(pendente)}</div>
         </div>
       </div>
+      {aRevisar > 0 && (
+        <button onClick={() => setFilter("revisar")} className="mt-3 w-full rounded-2xl border border-warning bg-warning/20 p-4 text-left text-sm">
+          <b>Pagas e canceladas: {brl(aRevisar)}</b> — não entram no recebido. Devolva o valor ou remarque a sessão. Toque para ver.
+        </button>
+      )}
+      <label className="mt-3 flex items-center justify-between rounded-2xl border bg-card p-4 text-sm">
+        <span><b>Cobrar faltas</b><br /><span className="text-muted-foreground">Sessões marcadas como "Faltou" {chargeNoShow ? "são cobradas" : "não são cobradas"}.{me?.role !== "terapeuta" && " Só a terapeuta pode mudar."}</span></span>
+        <Switch checked={chargeNoShow} disabled={me?.role !== "terapeuta" || toggle.isPending} onCheckedChange={(v) => toggle.mutate(v)} />
+      </label>
       <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)} className="mt-6">
         <TabsList>
           <TabsTrigger value="pendente">Pendentes</TabsTrigger>
           <TabsTrigger value="pago">Pagos</TabsTrigger>
           <TabsTrigger value="todos">Todos</TabsTrigger>
+          {aRevisar > 0 && <TabsTrigger value="revisar">A revisar</TabsTrigger>}
         </TabsList>
       </Tabs>
       <div className="mt-4 space-y-3">
