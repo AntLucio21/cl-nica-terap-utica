@@ -1,8 +1,9 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Users, Wallet, LogOut, UserCog } from "lucide-react";
+import { CalendarDays, Users, Wallet, LogOut, UserCog, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole } from "@/hooks/use-role";
+import { useReceptionCanSeeFinancials } from "@/hooks/use-settings";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -34,6 +35,9 @@ function Layout() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const isSecretaria = data?.role === "secretaria";
+  const { data: canSeeFinancials = true } = useReceptionCanSeeFinancials(isSecretaria);
+  const nav = NAV.filter((n) => n.to !== "/financeiro" || !isSecretaria || canSeeFinancials);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -48,7 +52,7 @@ function Layout() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
           <span className="font-display text-xl text-primary">Sereno</span>
           <nav className="hidden gap-1 md:flex">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
@@ -63,9 +67,14 @@ function Layout() {
           </nav>
           <div className="flex items-center gap-3">
             {data?.role === "terapeuta" && (
-              <Link to="/equipe" aria-label="Equipe" className="text-muted-foreground hover:text-foreground">
-                <UserCog className="h-5 w-5" />
-              </Link>
+              <>
+                <Link to="/configuracoes" aria-label="Configurações" className="text-muted-foreground hover:text-foreground">
+                  <Settings2 className="h-5 w-5" />
+                </Link>
+                <Link to="/equipe" aria-label="Equipe" className="text-muted-foreground hover:text-foreground">
+                  <UserCog className="h-5 w-5" />
+                </Link>
+              </>
             )}
             <span className="rounded-full bg-accent px-3 py-1 text-xs text-accent-foreground">
               {data?.role === "terapeuta" ? "Terapeuta" : data?.role === "secretaria" ? "Recepção" : "…"}
@@ -79,8 +88,8 @@ function Layout() {
       <main className="mx-auto max-w-5xl px-5 py-6">
         <Outlet />
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t bg-card md:hidden">
-        {NAV.map((n) => (
+      <nav className={cn("fixed inset-x-0 bottom-0 z-20 grid border-t bg-card md:hidden", nav.length === 2 ? "grid-cols-2" : "grid-cols-3")}>
+        {nav.map((n) => (
           <Link
             key={n.to}
             to={n.to}
