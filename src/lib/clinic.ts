@@ -18,28 +18,61 @@ export const STATUS_LABEL: Record<SessionStatus, string> = {
   faltou: "Faltou",
 };
 
-/** Whether a session should still be charged/listed in finances. */
-export function isBillable(s: { status: string; payment_status: string }, opts: { chargeNoShow?: boolean } = {}) {
-  if (s.status === "cancelada") return false;
-  if (s.status === "faltou" && opts.chargeNoShow === false && s.payment_status !== "pago") return false;
-  return true;
+/** Regras de cobrança vigentes (vêm das configurações da clínica). */
+export type ChargeRules = {
+  /** Antecedência mínima para cancelar sem custo. */
+  cancelNoticeHours: number;
+  /** % do valor cobrado quando o cancelamento é feito em cima da hora (0 = nada). */
+  cancelChargePct: number;
+  /** % do valor cobrado em falta (0 = nada, 100 = integral). */
+  noShowChargePct: number;
+};
+
+export const DEFAULT_RULES: ChargeRules = {
+  cancelNoticeHours: 24,
+  cancelChargePct: 0,
+  noShowChargePct: 100,
+};
+
+type Chargeable = {
+  price: number;
+  status: string;
+  payment_status: string;
+  starts_at?: string;
+  cancelled_at?: string | null;
+};
+
+/** Quanto a sessão gera de cobrança (recebido ou a receber). */
+export function chargeAmount(s: Chargeable, rules: ChargeRules = DEFAULT_RULES): number {
+  if (s.status === "cancelada") {
+    if (s.payment_status === "pago") return 0; // paga e cancelada vai para "a revisar"
+    if (!s.cancelled_at || !s.starts_at) return 0; // registros antigos sem data de cancelamento
+    const noticeHours = (new Date(s.starts_at).getTime() - new Date(s.cancelled_at).getTime()) / 36e5;
+    if (noticeHours >= rules.cancelNoticeHours) return 0;
+    return (Number(s.price) * rules.cancelChargePct) / 100;
+  }
+  if (s.status === "faltou") return (Number(s.price) * rules.noShowChargePct) / 100;
+  return Number(s.price);
 }
 
-export function summarize(
-  sessions: { price: number; payment_status: string; status: string }[],
-  opts: { chargeNoShow?: boolean } = {},
-) {
+/** Whether a session should still be charged/listed in finances. */
+export function isBillable(s: Chargeable, rules: ChargeRules = DEFAULT_RULES) {
+  return chargeAmount(s, rules) > 0;
+}
+
+export function summarize(sessions: Chargeable[], rules: ChargeRules = DEFAULT_RULES) {
   let recebido = 0;
   let pendente = 0;
   let aRevisar = 0; // paid but cancelled: refund or reschedule
   for (const s of sessions) {
-    if (s.status === "cancelada") {
-      if (s.payment_status === "pago") aRevisar += Number(s.price);
+    if (s.status === "cancelada" && s.payment_status === "pago") {
+      aRevisar += Number(s.price);
       continue;
     }
-    if (!isBillable(s, opts)) continue;
-    if (s.payment_status === "pago") recebido += Number(s.price);
-    else pendente += Number(s.price);
+    const amount = chargeAmount(s, rules);
+    if (amount <= 0) continue;
+    if (s.payment_status === "pago") recebido += amount;
+    else pendente += amount;
   }
   return { recebido, pendente, aRevisar };
 }
