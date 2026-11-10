@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useClinicSettings, type ClinicSettings } from "@/hooks/use-settings";
-import { CLINIC_TZ, brl, clinicDateTime } from "@/lib/clinic";
+import { CLINIC_TZ, clinicDateTime } from "@/lib/clinic";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -303,6 +303,3 @@ function BlocksEditor() {
     </section>
   );
 }
-
-// re-export brl to keep imports tidy for future receipt work
-export { brl };
