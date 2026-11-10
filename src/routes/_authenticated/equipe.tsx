@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -19,6 +19,9 @@ export const Route = createFileRoute("/_authenticated/equipe")({
       { property: "og:description", content: "Gerencie quem tem acesso ao sistema da clínica." },
     ],
   }),
+  beforeLoad: ({ context }) => {
+    if (context.role !== "terapeuta") throw redirect({ to: "/agenda" });
+  },
   component: EquipePage,
 });
 
