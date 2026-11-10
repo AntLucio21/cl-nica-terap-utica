@@ -14,20 +14,107 @@ export type Database = {
   }
   public: {
     Tables: {
+      clinic_blocks: {
+        Row: {
+          ends_at: string
+          id: string
+          reason: string
+          starts_at: string
+        }
+        Insert: {
+          ends_at: string
+          id?: string
+          reason?: string
+          starts_at: string
+        }
+        Update: {
+          ends_at?: string
+          id?: string
+          reason?: string
+          starts_at?: string
+        }
+        Relationships: []
+      }
+      clinic_hours: {
+        Row: {
+          end_time: string
+          id: string
+          start_time: string
+          weekday: number
+        }
+        Insert: {
+          end_time: string
+          id?: string
+          start_time: string
+          weekday: number
+        }
+        Update: {
+          end_time?: string
+          id?: string
+          start_time?: string
+          weekday?: number
+        }
+        Relationships: []
+      }
       clinic_settings: {
         Row: {
+          billing_template: string
+          cancel_charge_pct: number
+          cancel_notice_hours: number
           charge_no_show: boolean
+          clinic_name: string
+          clinic_phone: string
+          default_duration_min: number
+          default_price: number
           id: number
+          interval_min: number
+          logo_url: string
+          no_show_charge_pct: number
+          payment_methods: string[]
+          pix_key: string
+          reception_can_see_financials: boolean
+          reminder_hours_before: number
+          reminder_template: string
           updated_at: string
         }
         Insert: {
+          billing_template?: string
+          cancel_charge_pct?: number
+          cancel_notice_hours?: number
           charge_no_show?: boolean
+          clinic_name?: string
+          clinic_phone?: string
+          default_duration_min?: number
+          default_price?: number
           id?: number
+          interval_min?: number
+          logo_url?: string
+          no_show_charge_pct?: number
+          payment_methods?: string[]
+          pix_key?: string
+          reception_can_see_financials?: boolean
+          reminder_hours_before?: number
+          reminder_template?: string
           updated_at?: string
         }
         Update: {
+          billing_template?: string
+          cancel_charge_pct?: number
+          cancel_notice_hours?: number
           charge_no_show?: boolean
+          clinic_name?: string
+          clinic_phone?: string
+          default_duration_min?: number
+          default_price?: number
           id?: number
+          interval_min?: number
+          logo_url?: string
+          no_show_charge_pct?: number
+          payment_methods?: string[]
+          pix_key?: string
+          reception_can_see_financials?: boolean
+          reminder_hours_before?: number
+          reminder_template?: string
           updated_at?: string
         }
         Relationships: []
@@ -74,6 +161,53 @@ export type Database = {
           },
         ]
       }
+      patient_packages: {
+        Row: {
+          active: boolean
+          created_at: string
+          expires_on: string | null
+          id: string
+          name: string
+          patient_id: string
+          starts_on: string
+          total_price: number
+          total_sessions: number
+          used_sessions: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          name: string
+          patient_id: string
+          starts_on?: string
+          total_price?: number
+          total_sessions: number
+          used_sessions?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          name?: string
+          patient_id?: string
+          starts_on?: string
+          total_price?: number
+          total_sessions?: number
+          used_sessions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_packages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           active: boolean
@@ -112,6 +246,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          cancelled_at: string | null
           created_at: string
           duration_min: number
           id: string
@@ -125,6 +260,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          cancelled_at?: string | null
           created_at?: string
           duration_min?: number
           id?: string
@@ -138,6 +274,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          cancelled_at?: string | null
           created_at?: string
           duration_min?: number
           id?: string
@@ -191,6 +328,7 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      reception_can_see_financials: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "terapeuta" | "secretaria"
